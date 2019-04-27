@@ -6,6 +6,7 @@ Not bored with editing hosts file anymore
 ## Installation
 
 ```bash
+brew tap andycillin/tap
 brew install localman
 ```
 

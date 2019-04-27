@@ -9,7 +9,7 @@ $(TARGET): $(TARGET).c
 	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c
 
 package:
-	tar -zcvf localman-$(VERSION).tar.gz --include='*.c' --include='Makefile' .
+	tar -zcvf localman-$(VERSION).tar.gz localman
 
 clean:
 	$(RM) $(TARGET)
