@@ -18,8 +18,8 @@ localman COMMAND [PARAM]
 | Command        | Description  | 
 | -------------  |:-------------| 
 | ls             | List all custom domains | 
-| add <domain>   | Add a domain pointing to localhost      |
-| rm <domain>    | Remove a domain      | 
+| add &lt;domain&gt;   | Add a domain pointing to localhost      |
+| rm &lt;domain&gt;     | Remove a domain      | 
 | apply          | Apply changes (require root access)     | 
 | revert         | Restore original hosts file (require root access)      | 
 
