@@ -86,18 +86,22 @@ void show_current_table() {
     free(entries);
 }
 
-void run_cp(char *from, char *to) {
+void run_cp(char *from, char *to, bool root_access) {
     char cmd[255];
-    snprintf(cmd, sizeof(cmd), "cp %s %s", from, to);
+    char sudo[10] = "";
+    if (root_access){
+        strcpy(sudo, "sudo ");
+    }
+    snprintf(cmd, sizeof(cmd), "%scp %s %s", sudo,from, to);
     system(cmd);
 }
 
 void replace_realhosts() {
-    run_cp(SCRATCH_FILENAME, HOSTS_PATH);
+    run_cp(SCRATCH_FILENAME, HOSTS_PATH, true);
 }
 
 void restore_realhosts() {
-    run_cp(BACKUP_FILENAME, HOSTS_PATH);
+    run_cp(BACKUP_FILENAME, HOSTS_PATH, true);
 }
 
 void delete_file(char *f) {
@@ -139,7 +143,7 @@ void persist(char **entries, char *exclude) {
         fclose(origin);
         fclose(newfile);
 
-        run_cp(SCRATCH_FILENAME_EDITING, SCRATCH_FILENAME);
+        run_cp(SCRATCH_FILENAME_EDITING, SCRATCH_FILENAME, false);
         delete_file(SCRATCH_FILENAME_EDITING);
     } else {
         perror("Error: ");
