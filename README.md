@@ -4,10 +4,20 @@ A mini script that helps you manage your local domains easier.
 Not bored with editing hosts file anymore
 
 ## Installation
-
+#### Homebrew
 ```bash
 brew tap andycillin/tap
 brew install localman
+```
+#### Build from source
+```bash
+git clone https://github.com/Andycillin/localman
+cd localman
+make
+```
+Then move it to **/usr/bin** or any directory listed in your $PATH
+```bash
+sudo cp localman /usr/bin
 ```
 
 ## Usage
