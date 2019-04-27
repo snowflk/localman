@@ -11,7 +11,7 @@ brew install localman
 ```
 #### Build from source
 ```bash
-git clone https://github.com/Andycillin/localman
+git clone https://github.com/andycillin/localman
 cd localman
 make
 ```
