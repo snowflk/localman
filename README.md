@@ -6,12 +6,12 @@ Not bored with editing hosts file anymore
 ## Installation
 #### Homebrew
 ```bash
-brew tap andycillin/tap
+brew tap snowflk/tap
 brew install localman
 ```
 #### Build from source
 ```bash
-git clone https://github.com/andycillin/localman
+git clone https://github.com/snowflk/localman
 cd localman
 make
 ```
