@@ -29,11 +29,45 @@ localman COMMAND [PARAM]
 | Command        | Description  | 
 | -------------  |:-------------| 
 | ls             | List all custom domains | 
-| add &lt;domain&gt; [target]  | Add a domain pointing to target (default: localhost)      |
-| rm &lt;domain&gt;     | Remove a domain      | 
+| add <domain> [target]  | Add a domain pointing to target (default: localhost)      |
+| rm <domain>     | Remove a domain      | 
 | clear          | Remove all managed domains      | 
 | apply          | Apply changes (require root access)     | 
 | revert         | Restore original hosts file (require root access)      | 
+
+Note: changes are staged locally until you run `apply`; use `revert` to restore the original hosts file.
+
+## Examples
+
+Add a domain pointing to localhost:
+```bash
+localman add app.local
+```
+
+Add a domain pointing to a custom target:
+```bash
+localman add api.local 10.0.0.5
+```
+
+List managed domains:
+```bash
+localman ls
+```
+
+Example output:
+```text
+┌────────────────────────────┬────────────────────────────┐
+│ Domain                     │ Target                     │
+├────────────────────────────┼────────────────────────────┤
+│ app.local                  │ localhost                  │
+│ api.local                  │ 10.0.0.5                   │
+└────────────────────────────┴────────────────────────────┘
+```
+
+Clear all managed domains:
+```bash
+localman clear
+```
 
 ## License
 
