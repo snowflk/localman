@@ -286,6 +286,42 @@ void add_domain(char *new_domain, char *target) {
     free_entries(entries);
 }
 
+void update_domain(char *domain, char *target) {
+    backup_if_needed();
+
+    Entry *entries = calloc(MAX_ENTRIES + 1, sizeof(Entry));
+    if (entries == NULL) {
+        perror("Error: ");
+        return;
+    }
+    get_current_table(entries);
+
+    int idx = 0;
+    while (entries[idx].domain != NULL) {
+        if (strcmp(entries[idx].domain, domain) == 0) {
+            if (entries[idx].target != NULL) {
+                free(entries[idx].target);
+                entries[idx].target = NULL;
+            }
+            if (target != NULL) {
+                entries[idx].target = strdup(target);
+                if (entries[idx].target == NULL) {
+                    perror("Error: ");
+                    free_entries(entries);
+                    return;
+                }
+            }
+            persist(entries, NULL);
+            free_entries(entries);
+            return;
+        }
+        idx++;
+    }
+
+    puts("Domain not found");
+    free_entries(entries);
+}
+
 void remove_domain(char *old_domain) {
     backup_if_needed();
 
@@ -318,6 +354,7 @@ void show_help() {
     puts("Commands:");
     printf("%-20s%s\n", "ls", "List all custom domains");
     printf("%-20s%s\n", "add <domain> [target]", "Add a domain pointing to target (default: localhost)");
+    printf("%-20s%s\n", "update <domain> [target]", "Update a domain target (default: localhost)");
     printf("%-20s%s\n", "rm <domain>", "Remove a domain");
     printf("%-20s%s\n", "clear", "Remove all managed domains");
     printf("%-20s%s\n", "apply", "Apply changes (require root access)");
@@ -349,6 +386,9 @@ int main(int argc, char *argv[]) {
     } else if (!strcmp(argv[1], "add") && argc > 2) {
         char *target = argc > 3 ? argv[3] : NULL;
         add_domain(argv[2], target);
+    } else if (!strcmp(argv[1], "update") && argc > 2) {
+        char *target = argc > 3 ? argv[3] : NULL;
+        update_domain(argv[2], target);
     } else if (!strcmp(argv[1], "rm") && argc > 2) {
         remove_domain(argv[2]);
     } else if (!strcmp(argv[1], "clear")) {

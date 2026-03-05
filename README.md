@@ -30,6 +30,7 @@ localman COMMAND [PARAM]
 | -------------  |:-------------| 
 | ls             | List all custom domains | 
 | add <domain> [target]  | Add a domain pointing to target (default: localhost)      |
+| update <domain> [target]  | Update a domain target (default: localhost)      |
 | rm <domain>     | Remove a domain      | 
 | clear          | Remove all managed domains      | 
 | apply          | Apply changes (require root access)     | 
@@ -47,6 +48,11 @@ localman add app.local
 Add a domain pointing to a custom target:
 ```bash
 localman add api.local 10.0.0.5
+```
+
+Update an existing domain with a new target:
+```bash
+localman update api.local 10.0.0.6
 ```
 
 List managed domains:
@@ -68,6 +74,7 @@ Apply changes to the hosts file:
 ```bash
 localman apply
 ```
+
 ## License
 
 MIT License
