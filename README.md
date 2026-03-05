@@ -64,11 +64,10 @@ Example output:
 └────────────────────────────┴────────────────────────────┘
 ```
 
-Clear all managed domains:
+Apply changes to the hosts file:
 ```bash
-localman clear
+localman apply
 ```
-
 ## License
 
 MIT License

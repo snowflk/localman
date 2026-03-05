@@ -4,3 +4,5 @@
 
 # Misc
 *.o
+*.tar.gz
+.DS_Store
