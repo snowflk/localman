@@ -47,16 +47,25 @@ char BACKUP_FILENAME[255];
 char SCRATCH_FILENAME[255];
 char SCRATCH_FILENAME_EDITING[255];
 
+typedef struct {
+    char *domain;
+    char *target;
+} Entry;
+
 void resolve_path() {
     char* paths[] = {WORKDIR, BACKUP_FILENAME, SCRATCH_FILENAME, SCRATCH_FILENAME_EDITING};
     char* _paths[] = {_WORKDIR, _BACKUP_FILENAME, _SCRATCH_FILENAME, _SCRATCH_FILENAME_EDITING};
-    for (int i = 0; i < 4; i++){
-        wordexp(_paths[i], &exp_result, 0);
+    for (int i = 0; i < 4; i++) {
+        if (wordexp(_paths[i], &exp_result, 0) != 0 || exp_result.we_wordc == 0) {
+            fprintf(stderr, "Failed to resolve path: %s\n", _paths[i]);
+            exit(1);
+        }
         snprintf(paths[i], sizeof(WORKDIR), "%s", exp_result.we_wordv[0]);
+        wordfree(&exp_result);
     }
 }
 
-void get_current_table(char **entries) {
+void get_current_table(Entry *entries) {
     bool is_in_section = false;
     int current_table_length = 0;
 
@@ -64,49 +73,86 @@ void get_current_table(char **entries) {
     if (file != NULL) {
         char line[255];
         while (fgets(line, sizeof line, file) != NULL) {
-            line[strlen(line) - 1] = '\0';
+            size_t len = strlen(line);
+            if (len > 0 && line[len - 1] == '\n') {
+                line[len - 1] = '\0';
+            }
             if (strcmp(line, START_MARKER) == 0) {
                 is_in_section = true;
             } else if (strcmp(line, END_MARKER) == 0) {
                 is_in_section = false;
             } else if (is_in_section) {
-                strtok(line, " \t");
-                char *entry = strtok(NULL, " \t");
+                char *target = strtok(line, " \t");
+                char *domain = strtok(NULL, " \t");
+                if (target == NULL || domain == NULL) {
+                    continue;
+                }
+                if (current_table_length >= MAX_ENTRIES - 1) {
+                    break;
+                }
+                bool is_localhost = strcmp(target, "127.0.0.1") == 0 || strcmp(target, "::1") == 0;
                 if (current_table_length == 0 ||
-                    (current_table_length > 0 && strcmp(entries[current_table_length - 1], entry) != 0)) {
-                    entries[current_table_length] = malloc(255);
-                    strcpy(entries[current_table_length], entry);
+                    (current_table_length > 0 && strcmp(entries[current_table_length - 1].domain, domain) != 0)) {
+                    entries[current_table_length].domain = strdup(domain);
+                    if (entries[current_table_length].domain == NULL) {
+                        break;
+                    }
+                    if (is_localhost) {
+                        entries[current_table_length].target = NULL;
+                    } else {
+                        entries[current_table_length].target = strdup(target);
+                        if (entries[current_table_length].target == NULL) {
+                            free(entries[current_table_length].domain);
+                            entries[current_table_length].domain = NULL;
+                            break;
+                        }
+                    }
                     current_table_length++;
                 }
 
             }
         }
         // mark end of array
-        entries[current_table_length] = NULL;
+        entries[current_table_length].domain = NULL;
+        entries[current_table_length].target = NULL;
         fclose(file);
     } else {
         perror("Error: ");
     }
 }
 
+void free_entries(Entry *entries) {
+    if (entries == NULL) {
+        return;
+    }
+    for (int i = 0; entries[i].domain != NULL; i++) {
+        free(entries[i].domain);
+        free(entries[i].target);
+    }
+    free(entries);
+}
+
 void show_current_table() {
-    char **entries = malloc(MAX_ENTRIES);
+    Entry *entries = calloc(MAX_ENTRIES + 1, sizeof(Entry));
+    if (entries == NULL) {
+        perror("Error: ");
+        return;
+    }
     get_current_table(entries);
-    char *entry;
     int i = 0;
 
-    puts("┌────────────────────────────┐");
-    puts("│    Current local domains   │");
-    puts("├────────────────────────────┤");
+    puts("┌────────────────────────────┬────────────────────────────┐");
+    puts("│ Domain                     │ Target                     │");
+    puts("├────────────────────────────┼────────────────────────────┤");
 
-    while ((entry = entries[i]) != NULL) {
-        printf("│ %-26s │\n", entry);
+    while (entries[i].domain != NULL) {
+        const char *target = entries[i].target == NULL ? "localhost" : entries[i].target;
+        printf("│ %-26s │ %-26s │\n", entries[i].domain, target);
         i++;
     }
-    puts("└────────────────────────────┘");
+    puts("└────────────────────────────┴────────────────────────────┘");
 
-
-    free(entries);
+    free_entries(entries);
 }
 
 void run_cp(char *from, char *to, bool root_access) {
@@ -133,7 +179,7 @@ void delete_file(char *f) {
     system(cmd);
 }
 
-void persist(char **entries, char *exclude) {
+void persist(Entry *entries, char *exclude) {
     FILE *origin = fopen(SCRATCH_FILENAME, "r");
     FILE *newfile = fopen(SCRATCH_FILENAME_EDITING, "w");
     bool is_in_section = false;
@@ -141,7 +187,10 @@ void persist(char **entries, char *exclude) {
     if (origin != NULL) {
         char line[255];
         while (fgets(line, sizeof line, origin) != NULL) {
-            line[strlen(line) - 1] = '\0';
+            size_t len = strlen(line);
+            if (len > 0 && line[len - 1] == '\n') {
+                line[len - 1] = '\0';
+            }
             if (strcmp(line, START_MARKER) == 0) {
                 is_in_section = true;
             } else if (strcmp(line, END_MARKER) == 0) {
@@ -154,10 +203,14 @@ void persist(char **entries, char *exclude) {
         fprintf(newfile, "%s\n", START_MARKER);
 
         int idx = 0;
-        while (entries[idx] != NULL) {
-            if (exclude == NULL || strcmp(entries[idx], exclude)) {
-                fprintf(newfile, "127.0.0.1\t%s\n", entries[idx]);
-                fprintf(newfile, "::1\t%s\n", entries[idx]);
+        while (entries[idx].domain != NULL) {
+            if (exclude == NULL || strcmp(entries[idx].domain, exclude)) {
+                if (entries[idx].target == NULL) {
+                    fprintf(newfile, "127.0.0.1\t%s\n", entries[idx].domain);
+                    fprintf(newfile, "::1\t%s\n", entries[idx].domain);
+                } else {
+                    fprintf(newfile, "%s\t%s\n", entries[idx].target, entries[idx].domain);
+                }
             }
             idx++;
         }
@@ -187,38 +240,86 @@ void backup_if_needed() {
     copy_hosts_if_not_exist(BACKUP_FILENAME);
 }
 
-void add_domain(char *new_domain) {
+void add_domain(char *new_domain, char *target) {
     backup_if_needed();
 
-    char **entries = malloc(MAX_ENTRIES);
+    Entry *entries = calloc(MAX_ENTRIES + 1, sizeof(Entry));
+    if (entries == NULL) {
+        perror("Error: ");
+        return;
+    }
     get_current_table(entries);
     int current_table_length = 0;
-    while (entries[current_table_length] != NULL) {
-        if (strcmp(entries[current_table_length], new_domain) == 0) {
+    while (entries[current_table_length].domain != NULL) {
+        if (strcmp(entries[current_table_length].domain, new_domain) == 0) {
             puts("This domain already exists");
+            free_entries(entries);
             return;
         }
         current_table_length++;
     }
-    entries[current_table_length++] = new_domain;
-    entries[current_table_length] = NULL;
+    if (current_table_length >= MAX_ENTRIES - 1) {
+        puts("Too many domains");
+        free_entries(entries);
+        return;
+    }
+    entries[current_table_length].domain = strdup(new_domain);
+    if (entries[current_table_length].domain == NULL) {
+        perror("Error: ");
+        free_entries(entries);
+        return;
+    }
+    if (target != NULL) {
+        entries[current_table_length].target = strdup(target);
+        if (entries[current_table_length].target == NULL) {
+            perror("Error: ");
+            free_entries(entries);
+            return;
+        }
+    } else {
+        entries[current_table_length].target = NULL;
+    }
+    current_table_length++;
+    entries[current_table_length].domain = NULL;
+    entries[current_table_length].target = NULL;
     persist(entries, NULL);
+    free_entries(entries);
 }
 
 void remove_domain(char *old_domain) {
     backup_if_needed();
 
-    char **entries = malloc(MAX_ENTRIES);
+    Entry *entries = calloc(MAX_ENTRIES + 1, sizeof(Entry));
+    if (entries == NULL) {
+        perror("Error: ");
+        return;
+    }
     get_current_table(entries);
     persist(entries, old_domain);
+    free_entries(entries);
+}
+
+void clear_domains() {
+    backup_if_needed();
+
+    Entry *entries = calloc(MAX_ENTRIES + 1, sizeof(Entry));
+    if (entries == NULL) {
+        perror("Error: ");
+        return;
+    }
+    entries[0].domain = NULL;
+    entries[0].target = NULL;
+    persist(entries, NULL);
+    free_entries(entries);
 }
 
 void show_help() {
-    puts("Usage: localman COMMAND [PARAM]");
+    puts("Usage: localman COMMAND [PARAM] [TARGET]");
     puts("Commands:");
     printf("%-20s%s\n", "ls", "List all custom domains");
-    printf("%-20s%s\n", "add <domain>", "Add a domain pointing to localhost");
+    printf("%-20s%s\n", "add <domain> [target]", "Add a domain pointing to target (default: localhost)");
     printf("%-20s%s\n", "rm <domain>", "Remove a domain");
+    printf("%-20s%s\n", "clear", "Remove all managed domains");
     printf("%-20s%s\n", "apply", "Apply changes (require root access)");
     printf("%-20s%s\n", "revert", "Restore original hosts file (require root access)");
 }
@@ -246,10 +347,12 @@ int main(int argc, char *argv[]) {
     } else if (!strcmp(argv[1], "revert")) {
         restore_realhosts();
     } else if (!strcmp(argv[1], "add") && argc > 2) {
-
-        add_domain(argv[2]);
+        char *target = argc > 3 ? argv[3] : NULL;
+        add_domain(argv[2], target);
     } else if (!strcmp(argv[1], "rm") && argc > 2) {
         remove_domain(argv[2]);
+    } else if (!strcmp(argv[1], "clear")) {
+        clear_domains();
     } else {
         show_help();
     }

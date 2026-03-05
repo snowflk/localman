@@ -1,0 +1,6 @@
+# Build outputs
+/localman
+/localman.dSYM/
+
+# Misc
+*.o
